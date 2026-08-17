@@ -1,0 +1,68 @@
+package cn.light.common.advice;
+
+
+import cn.dev33.satoken.exception.SaTokenException;
+import cn.light.common.exception.BaseKnownException;
+import cn.light.common.util.ResultVO;
+import io.undertow.util.BadRequestException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+/**
+ * 异常统一处理
+ *
+ * @author Echosong
+ * @version V1.0
+ * @date 2019年9月11日
+ */
+@Slf4j
+@ControllerAdvice
+public class ExceptionHandleAdvice {
+
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResultVO handleBadRequest(BadRequestException ex) {
+        log.warn("Bad request: {}", ex.getMessage());
+        return ResultVO.error(400, "请求格式错误");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResultVO handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Illegal argument: {}", ex.getMessage());
+        return ResultVO.error(400, "参数错误: " + ex.getMessage());
+    }
+
+    @ExceptionHandler(NullPointerException.class)
+    public ResultVO handleNullPointer(NullPointerException ex) {
+        log.error("Null pointer exception", ex);
+        return ResultVO.error(500, "系统内部错误");
+    }
+
+    @ResponseBody
+    @ExceptionHandler(Exception.class)
+    public ResultVO handleException(Exception e, HttpServletRequest request, HttpServletResponse response) {
+        log.error("异常{}", e.getMessage(), e);
+        if (e instanceof MethodArgumentNotValidException) {
+            //验证码参数
+            MethodArgumentNotValidException ex = (MethodArgumentNotValidException) e;
+            FieldError fieldError = ex.getBindingResult().getFieldError();
+            return ResultVO.error(2000, fieldError.getDefaultMessage());
+        }
+        if (e instanceof SaTokenException) {
+            //登录或者无权限
+            return ResultVO.error(401, e.getMessage());
+        }
+        //自定义抛异常
+        if(e instanceof BaseKnownException){
+            return  ResultVO.error(((BaseKnownException) e).getCode(), e.getMessage());
+        }
+
+        return ResultVO.error(e.getMessage());
+    }
+}
